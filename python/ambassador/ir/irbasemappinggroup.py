@@ -4,6 +4,8 @@ from ..config import Config
 from .irbasemapping import IRBaseMapping
 from .irresource import IRResource
 
+from itertools import groupby
+
 if TYPE_CHECKING:
     from .ir import IR  # pragma: no cover
 
@@ -72,7 +74,18 @@ class IRBaseMappingGroup(IRResource):
         normalized_mappings = []
 
         current_weight = 0
-        for mapping in self.mappings:
+        groupby_mappings = groupby(sorted(self.mappings, key=lambda x:x["cluster_key"]), key=lambda x:x["cluster_key"])
+        for cluster_key, mapping_iterator in groupby_mappings:
+            
+            mappings = list(mapping_iterator)
+            
+            if len(mappings) > 1:
+                self.logger.error(
+                    f"More than 1 mappings have same cluster_key {cluster_key} in group {self.group_id}. Removing the duplicate mappings with least weight"
+                )
+            
+            mapping = max(mappings, key=lambda x:x.get("weight", 100))
+                        
             if "weight" in mapping:
                 if mapping.weight > 100:
                     self.post_error(f"Mapping {mapping.name} has invalid weight {mapping.weight}")
